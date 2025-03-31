@@ -80,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "content": message,
                     },
                 ]
-                + chat_history[-5:],
+                + chat_history,
                 tools=tools_meta,
             )
 
@@ -116,13 +116,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     format=FunctionDefinitionFormat.OPENAI,
                 )
 
+                function_result_str = json.dumps(function_result, indent=2)
+            
                 # Send function result
                 await websocket.send_json({
                     "type": "progress",
-                    "content": f"Function Result: {json.dumps(function_result, indent=2)}"
+                    "content": f"Function Result: {function_result_str}"
                 })
                 chat_history.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(function_result)})
-  
+
             else:
                 await websocket.send_json({
                     "type": "final",

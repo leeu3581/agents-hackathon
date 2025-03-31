@@ -15,6 +15,9 @@ export async function POST(request: Request) {
 
     console.log("Processing text:", text); // Debug log
 
+    // Make into human readable format removing all links. 
+    const humanReadableText = text.replace(/https?:\/\/[^\s]+/g, '');
+
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: 'tts-1',
         voice: 'alloy',
-        input: text,
+        input: humanReadableText,
       }),
     });
 
