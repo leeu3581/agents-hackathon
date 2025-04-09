@@ -14,11 +14,17 @@ Origins is an AI-powered agent designed to tackle the challenge of unreliable in
 1. Navigate to the backend directory:
 
 cd backend
+
 2. Install the required Python dependencies:
+
 pip install -r requirements.txt
+
 3. Start the WebSocket server:
+
 python main.py
+
 ### Running the UI
+
 1. Install Node.js dependencies:
 npm install
 2. Start the development server:
@@ -26,3 +32,6 @@ npm run dev
 3. Open your web browser and go to:
 http://localhost:3000/
 
+
+### Technologies used:
+1. OpenAI, Grok, ACI.dev 
