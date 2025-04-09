@@ -7,9 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AI Assistant",
-  description: "Voice-enabled AI assistant interface",
-    generator: 'v0.dev'
+  title: "Origins",
+  description: "Find the source of any media",
 }
 
 export default function RootLayout({

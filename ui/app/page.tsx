@@ -6,13 +6,72 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Mic, Send, Loader2 } from "lucide-react"
+import { Mic, Send, Loader2, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Message {
   id: string
   content: string
   role: "user" | "assistant" | "progress"
+}
+
+// Helper function to format message content
+const formatMessageContent = (content: string) => {
+  // Split content by newlines
+  return content.split('\n').map((line, index) => {
+    // Handle bold text with ** markers
+    line = line.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    
+    // Check if line contains a URL
+    const urlRegex = /(https?:\/\/[^\s)]+)/g;
+    const parts = line.split(urlRegex);
+    
+    return (
+      <p key={index} className="break-words">
+        {parts.map((part, partIndex) => {
+          if (part.match(/^https?:\/\//)) {
+            return (
+              <a
+                key={partIndex}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                {part}
+              </a>
+            );
+          } else if (part.match(/<b>([^<]+)<\/b>/)) {
+            const [_, text] = part.match(/<b>([^<]+)<\/b>/) || [];
+            return <strong key={partIndex}>{text}</strong>;
+          }
+          return part;
+        })}
+      </p>
+    );
+  });
+};
+
+// Add visualization of the source chain
+const SourceChain = ({ sources }) => {
+  return (
+    <div className="flex flex-col gap-4">
+      {sources.map((source, i) => (
+        <div key={i} className="flex items-center">
+          <div className="p-4 border rounded">
+            <h3>{source.title}</h3>
+            <p className="text-sm text-muted-foreground">{source.date}</p>
+            <a href={source.url} className="text-blue-500 hover:underline">{source.url}</a>
+          </div>
+          {i < sources.length - 1 && (
+            <div className="h-8 w-8 flex items-center justify-center">
+              <ChevronDown className="h-6 w-6" />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function Home() {
@@ -67,7 +126,7 @@ export default function Home() {
           // Play TTS for regular messages
           if (data.content) {
             console.log("Playing TTS for message:", data.content);
-            await playTTS(data.content);
+            // await playTTS(data.content);
 
           }
           break;
@@ -115,10 +174,12 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsProcessing(true)
+    
 
     try {
       // Send message through WebSocket
       if (wsRef.current?.readyState === WebSocket.OPEN) {
+        // console.log(wsRef.current)
         wsRef.current.send(input)
       } else {
         throw new Error('WebSocket connection not open')
@@ -261,26 +322,44 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
       <audio ref={audioRef} className="hidden" />
-      <Card className="w-full max-w-md h-[80vh] flex flex-col">
-        <CardHeader className="border-b">
-          <CardTitle className="text-center">AI Assistant</CardTitle>
+      <Card className="w-full max-w-[90vw] h-[80vh] flex flex-col">
+        <CardHeader className="border-b py-3">
+          <CardTitle className="text-center text-xl">Origins</CardTitle>
         </CardHeader>
 
-        <CardContent ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <CardContent 
+          ref={chatContainerRef} 
+          className="flex-1 overflow-y-auto p-3 space-y-2"
+        >
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p>Ask me anything or hold the mic button to speak</p>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <div className="text-center space-y-2">
+                <p className="text-base">Drop any media to find its source</p>
+                <p className="text-xs max-w-md">
+                  Supports images, videos, audio, and text. We'll trace back to find where it originated from.
+                </p>
+              </div>
             </div>
           ) : (
             messages.map((message) => (
-              <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                key={message.id}
+                className={cn(
+                  "flex",
+                  message.role === "user" ? "justify-end" : "justify-start"
+                )}
+              >
                 <div
                   className={cn(
-                    "max-w-[80%] rounded-lg px-4 py-2",
-                    message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
+                    "max-w-[90%] rounded-lg px-3 py-2 text-xs",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : message.role === "progress"
+                      ? "bg-muted/50 text-muted-foreground font-mono"
+                      : "bg-secondary text-secondary-foreground"
                   )}
                 >
-                  {message.content}
+                  {formatMessageContent(message.content)}
                 </div>
               </div>
             ))
@@ -288,40 +367,31 @@ export default function Home() {
 
           {isProcessing && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted flex items-center space-x-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Processing...</span>
+              <div className="max-w-[90%] rounded-lg px-3 py-2 bg-muted/50 font-mono text-xs flex items-center space-x-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Analyzing media...</span>
               </div>
             </div>
           )}
         </CardContent>
 
-        <CardFooter className="border-t p-4">
+        <CardFooter className="border-t p-3">
           <form onSubmit={handleSendMessage} className="flex w-full space-x-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
+              placeholder="Or paste a URL here..."
               disabled={isRecording || isProcessing}
-              className="flex-1"
+              className="flex-1 text-xs h-8"
             />
 
-            <Button type="submit" size="icon" disabled={!input.trim() || isRecording || isProcessing}>
-              <Send className="h-4 w-4" />
-            </Button>
-
-            <Button
-              type="button"
-              size="icon"
-              variant={isRecording ? "destructive" : "secondary"}
-              className={cn("transition-all", isRecording && "animate-pulse")}
-              onMouseDown={handleMicButtonDown}
-              onMouseUp={handleMicButtonUp}
-              onTouchStart={handleMicButtonDown}
-              onTouchEnd={handleMicButtonUp}
-              disabled={isProcessing}
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="h-8 w-8"
+              disabled={!input.trim() || isRecording || isProcessing}
             >
-              <Mic className="h-4 w-4" />
+              <Send className="h-3 w-3" />
             </Button>
           </form>
         </CardFooter>
