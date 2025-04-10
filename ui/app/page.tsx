@@ -5,12 +5,32 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Send, Loader2, Calendar, ExternalLink, User, Menu } from "lucide-react"
+import {
+  Send,
+  Loader2,
+  Calendar,
+  ExternalLink,
+  Menu,
+  ThumbsUp,
+  ThumbsDown,
+  AlertCircle,
+  Check,
+  User,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { format, parseISO } from "date-fns"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { toast } from "@/components/ui/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 
 interface Source {
   type?: string
@@ -23,7 +43,9 @@ interface Source {
     img: string
   }
   media_outlet?: string
-  reputation?: number // Added reputation field
+  reputation?: number
+  votes?: number
+  id?: string
 }
 
 interface Message {
@@ -52,6 +74,7 @@ const getReputationForOutlet = (outlet?: string): number => {
     "buzzfeed.com": 2,
     "dailymail.co.uk": 2,
     "nypost.com": 2,
+    "medium.com": 0,
   }
 
   // Try to match the outlet with entries in our map
@@ -61,7 +84,7 @@ const getReputationForOutlet = (outlet?: string): number => {
     }
   }
 
-  return 3 // Default rating for unknown outlets
+  return 0 // Default rating for unknown outlets
 }
 
 // Add a function to get color for source type
@@ -140,7 +163,6 @@ const extractSources = (messages: Message[]): Source[] => {
   messages.forEach((message) => {
     if (message.role === "progress" && message.content.includes("Function Result:")) {
       try {
-        // console.log("Extracting sources from message:", message.content)
         // Extract the JSON part from the message
         const jsonMatch = message.content.match(/Function Result: ({[\s\S]*})/)
         if (jsonMatch && jsonMatch[1]) {
@@ -155,11 +177,26 @@ const extractSources = (messages: Message[]): Source[] => {
                 page_age: result.page_age,
                 description: result.description,
                 profile: result.profile,
-                media_outlet: result.meta_url.hostname,
-                reputation: getReputationForOutlet(result.meta_url.hostname),
+                media_outlet: result.profile?.long_name || "unknown.com",
+                reputation: getReputationForOutlet(result.profile?.long_name),
+                votes: 0,
               })
             })
-          } 
+          } else if (resultData.data.web.results) {
+            resultData.data.web.results.forEach((result: any) => {
+              sources.push({
+                type: result.type,                
+                title: result.title,
+                url: result.url,
+                page_age: result.page_age,
+                description: result.description,
+                profile: result.profile,
+                media_outlet: result.profile?.long_name || "unknown.com",
+                reputation: getReputationForOutlet(result.profile?.long_name),
+                votes: 0,
+              })
+            })
+          }
         }
       } catch (error) {
         console.error("Error parsing source data:", error)
@@ -190,6 +227,10 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [sources, setSources] = useState<Source[]>([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [voteDialogOpen, setVoteDialogOpen] = useState(false)
+  const [currentVoteSource, setCurrentVoteSource] = useState<Source | null>(null)
+  const [voteType, setVoteType] = useState<"up" | "down" | null>(null)
+  const [voteProcessing, setVoteProcessing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -445,6 +486,46 @@ export default function Home() {
     }
   }
 
+  // Handle voting on sources
+  const handleVote = (source: Source, type: "up" | "down") => {
+    setCurrentVoteSource(source)
+    setVoteType(type)
+    setVoteDialogOpen(true)
+  }
+
+  const confirmVote = async () => {
+    if (!currentVoteSource || !voteType) return
+
+    setVoteProcessing(true)
+
+    // Simulate processing time
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Update the vote count
+    setSources((prevSources) =>
+      prevSources.map((source) => {
+        if (source.id === currentVoteSource.id) {
+          return {
+            ...source,
+            votes: (source.votes || 0) + (voteType === "up" ? 1 : -1),
+          }
+        }
+        return source
+      }),
+    )
+
+    setVoteProcessing(false)
+    setVoteDialogOpen(false)
+
+    // Show success toast
+    toast({
+      title: "Vote submitted successfully",
+      description: `Your ${voteType === "up" ? "upvote" : "downvote"} has been recorded.`,
+      action: <ToastAction altText="OK">OK</ToastAction>,
+    })
+  }
+
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -477,14 +558,11 @@ export default function Home() {
             <span className="text-xs">Connected</span>
           </Badge>
 
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-xs gap-1 hidden md:flex">
-              <User className="h-3 w-3" />
-              <span>Elisa</span>
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" />
+              Elisa
             </Button>
-            <Avatar className="h-8 w-8 border">
-              <User className="h-5 w-5 text-muted-foreground" />
-            </Avatar>
           </div>
         </div>
       </header>
@@ -585,6 +663,8 @@ export default function Home() {
                           <span>{formatDate(source.page_age)}</span>
                         </div>
                         <div className="text-sm font-medium line-clamp-2">{source.title}</div>
+
+                        {/* Source type tag */}
                         {source.type && (
                           <div className="flex items-center gap-2">
                             <span
@@ -594,6 +674,8 @@ export default function Home() {
                             </span>
                           </div>
                         )}
+
+                        {/* Media outlet with reputation */}
                         {source.media_outlet && (
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">{source.media_outlet}</span>
@@ -603,15 +685,48 @@ export default function Home() {
                             </div>
                           </div>
                         )}
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-500 hover:underline flex items-center gap-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View Source
-                        </a>
+
+                        {/* View source link */}
+                        <div className="flex items-center justify-between">
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View Source
+                          </a>
+
+                          {/* Vote count display */}
+                          <span className="text-xs font-medium">Votes: {source.votes || 0}</span>
+                        </div>
+
+                        {/* Voting buttons */}
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleVote(source, "up")}
+                            >
+                              <ThumbsUp className="h-3 w-3 mr-1" />
+                              Upvote
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleVote(source, "down")}
+                            >
+                              <ThumbsDown className="h-3 w-3 mr-1" />
+                              Downvote
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Source description */}
                         {source.description && (
                           <div
                             className="text-xs text-muted-foreground mt-1 line-clamp-3"
@@ -626,86 +741,182 @@ export default function Home() {
             )}
           </div>
         </div>
-      </div>
 
-      {/* Mobile sources panel (slide-in) */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 md:hidden">
-          <div className="fixed right-0 top-0 h-full w-3/4 bg-card border-l shadow-lg">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="font-semibold">Source Timeline</h2>
-              <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(false)}>
-                ✕
-              </Button>
-            </div>
+        {/* Mobile sources panel (slide-in) */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 md:hidden">
+            <div className="fixed right-0 top-0 h-full w-3/4 bg-card border-l shadow-lg">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h2 className="font-semibold">Source Timeline</h2>
+                <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(false)}>
+                  ✕
+                </Button>
+              </div>
 
-            {/* Update the mobile sources panel to match the desktop version */}
-            <div className="p-4 overflow-y-auto max-h-[calc(100vh-4rem)]">
-              {sources.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">No sources found yet</p>
-                  <p className="text-xs mt-1">Sources will appear here as they're discovered</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {sources.map((source, index) => (
-                    <div key={index} className="relative">
-                      {index > 0 && (
-                        <div className="absolute left-3 top-0 h-full w-0.5 bg-muted -translate-y-1/2"></div>
-                      )}
-                      <div className="relative z-10 flex items-start gap-3">
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            <span>{formatDate(source.page_age)}</span>
+              {/* Update the mobile sources panel to match the desktop version */}
+              <div className="p-4 overflow-y-auto max-h-[calc(100vh-4rem)]">
+                {sources.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No sources found yet</p>
+                    <p className="text-xs mt-1">Sources will appear here as they're discovered</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {sources.map((source, index) => (
+                      <div key={index} className="relative">
+                        {index > 0 && (
+                          <div className="absolute left-3 top-0 h-full w-0.5 bg-muted -translate-y-1/2"></div>
+                        )}
+                        <div className="relative z-10 flex items-start gap-3">
+                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs">
+                            {index + 1}
                           </div>
-                          <div className="text-sm font-medium line-clamp-2">{source.title}</div>
-                          {source.type && (
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded-full text-white ${getSourceTypeColor(source.type)}`}
-                              >
-                                {source.type}
-                              </span>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatDate(source.page_age)}</span>
                             </div>
-                          )}
-                          {source.media_outlet && (
+                            <div className="text-sm font-medium line-clamp-2">{source.title}</div>
+
+                            {/* Source type tag */}
+                            {source.type && (
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded-full text-white ${getSourceTypeColor(source.type)}`}
+                                >
+                                  {source.type}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Media outlet with reputation */}
+                            {source.media_outlet && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">{source.media_outlet}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">Reputation:</span>
+                                  <ReputationStars rating={getReputationForOutlet(source.media_outlet)} />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* View source link and vote count */}
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">{source.media_outlet}</span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-muted-foreground">Reputation:</span>
-                                <ReputationStars rating={getReputationForOutlet(source.media_outlet)} />
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                View Source
+                              </a>
+                              <span className="text-xs font-medium">Votes: {source.votes || 0}</span>
+                            </div>
+
+                            {/* Voting buttons */}
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => handleVote(source, "up")}
+                                >
+                                  <ThumbsUp className="h-3 w-3 mr-1" />
+                                  Upvote
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => handleVote(source, "down")}
+                                >
+                                  <ThumbsDown className="h-3 w-3 mr-1" />
+                                  Downvote
+                                </Button>
                               </div>
                             </div>
-                          )}
-                          <a
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-500 hover:underline flex items-center gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            View Source
-                          </a>
-                          {source.description && (
-                            <div
-                              className="text-xs text-muted-foreground mt-1 line-clamp-3"
-                              dangerouslySetInnerHTML={{ __html: source.description }}
-                            />
-                          )}
+
+                            {/* Source description */}
+                            {source.description && (
+                              <div
+                                className="text-xs text-muted-foreground mt-1 line-clamp-3"
+                                dangerouslySetInnerHTML={{ __html: source.description }}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* Vote confirmation dialog */}
+      <Dialog open={voteDialogOpen} onOpenChange={setVoteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm your vote with TORUS</DialogTitle>
+            <DialogDescription>
+              Voting requires a small fee of 0.1 TORUS to prevent spam and ensure quality ratings.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-col gap-2 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Source:</span>
+                <span className="text-sm line-clamp-1">{currentVoteSource?.title}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Vote type:</span>
+                <Badge variant={voteType === "up" ? "default" : "destructive"}>
+                  {voteType === "up" ? "Upvote" : "Downvote"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Fee:</span>
+                <span>0.1 TORUS</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Wallet balance:</span>
+                <span>5.245 TORUS</span>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 p-3 rounded-md text-xs">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
+                <p>Your vote will be cryptographically signed and recorded on-chain. This action cannot be undone.</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-between">
+            <Button variant="outline" onClick={() => setVoteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmVote} disabled={voteProcessing}>
+              {voteProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Confirm Vote
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
