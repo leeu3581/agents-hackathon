@@ -2,36 +2,96 @@
 
 ## Project Overview
 
-Origins is an AI-powered agent designed to tackle the challenge of unreliable information online. With the proliferation of AI-generated content and the overwhelming volume of data, distinguishing between credible and misleading sources has become increasingly difficult. Origins addresses this by integrating advanced search capabilities with a critique agent that evaluates and scores sources for reliability. It aims to provide users with accurate references in real-time, promoting informed decision-making and trust in online information.
+Origins is an AI-powered intelligence agent designed to address the growing challenge of information reliability in the digital age. As the internet becomes increasingly saturated with AI-generated content and overwhelming amounts of data, distinguishing credible sources from misleading information has become a critical challenge.
+
+Our solution integrates advanced search capabilities with a sophisticated critique agent that systematically evaluates and scores sources based on multiple reliability metrics. Origins aims to empower users with real-time access to verified references, facilitating informed decision-making and rebuilding trust in online information consumption.
+
+## Key Features
+
+- **Advanced Source Verification**: Automated evaluation of source credibility and reliability
+- **Real-time Analysis**: Instant assessment of information accuracy
+- **Multi-model Integration**: Leveraging multiple AI models (OpenAI, Grok, ACI.dev) for comprehensive analysis
+- **User-friendly Interface**: Clean, intuitive web interface for easy interaction
+
+## Technical Architecture
+
+### Backend
+- Python-based WebSocket server
+- Advanced AI integration through multiple APIs
+- Real-time processing capabilities
+
+### Frontend
+- Modern React-based UI
+- Next.js framework for optimal performance
+- Responsive design for all devices
 
 ## Setup Instructions
 
 ### Prerequisites
-- Node.js installed
-- Python installed (compatible version with ACI.dev)
 
-### Running the WebSocket Server
+- Node.js (v14 or higher)
+- Python 3.8+ 
+- Compatible environment for ACI.dev integration
+
+### Backend Setup
+
 1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-cd backend
-
-2. Install the required Python dependencies:
-
-pip install -r requirements.txt
+2. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3. Start the WebSocket server:
+   ```bash
+   python main.py
+   ```
 
-python main.py
-
-### Running the UI
+### Frontend Setup
 
 1. Install Node.js dependencies:
-npm install
+   ```bash
+   npm install
+   ```
+
 2. Start the development server:
-npm run dev
-3. Open your web browser and go to:
-http://localhost:3000/
+   ```bash
+   npm run dev
+   ```
 
+3. Access the application:
+   ```
+   http://localhost:3000/
+   ```
 
-### Technologies used:
-1. OpenAI, Grok, ACI.dev 
+## Technology Stack
+
+- **AI Models**:
+  - OpenAI
+  - Grok
+  - ACI.dev
+
+- **Frontend**:
+  - React
+  - Next.js
+  - WebSocket client
+
+- **Backend**:
+  - Python
+  - WebSocket server
+  - AI API integrations
+
+## Contributing
+
+We welcome contributions! Please read our contributing guidelines before submitting pull requests.
+
+## License
+
+[License information to be added]
+
+## Contact
+
+[Contact information to be added] 
