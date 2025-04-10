@@ -87,11 +87,3 @@ Our solution integrates advanced search capabilities with a sophisticated critiq
 ## Contributing
 
 We welcome contributions! Please read our contributing guidelines before submitting pull requests.
-
-## License
-
-[License information to be added]
-
-## Contact
-
-[Contact information to be added] 
